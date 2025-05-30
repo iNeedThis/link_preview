@@ -28,19 +28,35 @@ defmodule LinkPreview.Processor do
       {:ok, %Tesla.Env{status: 200, url: final_url}, "image/" <> _} ->
         do_image_call(url, final_url, [Image])
 
-      {:ok, _, _} ->
-        %LinkPreview.Error{origin: LinkPreview, message: "unsupported response"}
+      {:ok, %Tesla.Env{status: status}, _} ->
+        %LinkPreview.Error{origin: :http_status, message: "HTTP #{status}"}
+
+      {:ok, _, content_type} ->
+        %LinkPreview.Error{
+          origin: :unsupported_content,
+          message: "Unsupported content type: #{content_type}"
+        }
+
+      {:error, %Tesla.Error{reason: reason}, _} ->
+        %LinkPreview.Error{origin: :network, message: "Network error: #{inspect(reason)}"}
 
       {:error, reason, _} ->
-        %LinkPreview.Error{origin: 123, message: reason}
+        %LinkPreview.Error{origin: :request, message: "Request failed: #{inspect(reason)}"}
     end
     |> to_tuple()
   catch
-    _, %{__struct__: origin, message: message} ->
+    :error, %{__struct__: origin, message: message} ->
       {:error, %LinkPreview.Error{origin: origin, message: message}}
 
-    _, _ ->
-      {:error, %LinkPreview.Error{origin: :unknown}}
+    :error, reason ->
+      {:error, %LinkPreview.Error{origin: :parsing, message: "Parsing error: #{inspect(reason)}"}}
+
+    :exit, reason ->
+      {:error,
+       %LinkPreview.Error{origin: :timeout, message: "Request timeout: #{inspect(reason)}"}}
+
+    _, reason ->
+      {:error, %LinkPreview.Error{origin: :unknown, message: "Unknown error: #{inspect(reason)}"}}
   end
 
   defp to_tuple(result) do
@@ -66,8 +82,20 @@ defmodule LinkPreview.Processor do
         |> Page.new(final_url)
         |> collect_data(parsers, body)
 
-      _ ->
-        %LinkPreview.Error{origin: LinkPreview, message: "unsupported response"}
+      {:ok, %Tesla.Env{status: status}} ->
+        %LinkPreview.Error{
+          origin: :http_status,
+          message: "GET request failed with HTTP #{status}"
+        }
+
+      {:error, %Tesla.Error{reason: reason}} ->
+        %LinkPreview.Error{
+          origin: :network,
+          message: "GET request network error: #{inspect(reason)}"
+        }
+
+      {:error, reason} ->
+        %LinkPreview.Error{origin: :request, message: "GET request failed: #{inspect(reason)}"}
     end
   end
 

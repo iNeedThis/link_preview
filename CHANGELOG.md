@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2024-12-28
+
+### Fixed
+- **Fixed compression decompression errors**: Replaced Tesla's DecompressResponse middleware with custom robust decompression that handles zlib errors gracefully
+- **Improved error handling**: Replaced generic `:unknown` errors with specific error origins (`:network`, `:http_status`, `:unsupported_content`, `:parsing`, `:timeout`, `:request`)
+- **Enhanced error messages**: Added descriptive error messages for better debugging
+- **Robust deflate handling**: Properly handles both raw deflate and zlib-wrapped deflate compression
+
+### Changed
+- Custom `LinkPreview.Requests.RobustDecompression` middleware now handles compression errors by falling back to raw content
+- Better error categorization throughout the processing pipeline
+
 ## [1.1.0] - 2025-01-27
 
 ### Added
