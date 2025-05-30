@@ -1,4 +1,4 @@
-use Mix.Config
+import Config
 
 config :httparrot,
   http_port: 8888,

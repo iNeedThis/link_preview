@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  MIX_ENV: test
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }}
+    runs-on: ubuntu-20.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: '1.14'
+            otp: '25'
+          - elixir: '1.15'
+            otp: '25'
+          - elixir: '1.15'
+            otp: '26'
+          - elixir: '1.16'
+            otp: '26'
+          - elixir: '1.16'
+            otp: '27'
+          - elixir: '1.17'
+            otp: '27'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: ${{ matrix.elixir }}
+        otp-version: ${{ matrix.otp }}
+
+    - name: Restore dependencies cache
+      uses: actions/cache@v4
+      with:
+        path: deps
+        key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+        restore-keys: ${{ runner.os }}-mix-
+
+    - name: Restore build cache
+      uses: actions/cache@v4
+      with:
+        path: _build
+        key: ${{ runner.os }}-build-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ matrix.otp }}-${{ matrix.elixir }}-
+
+    - name: Install dependencies
+      run: mix deps.get
+
+    - name: Check formatting
+      run: mix format --check-formatted
+
+    - name: Compile with warnings as errors
+      run: mix compile --warnings-as-errors
+
+    - name: Run tests
+      run: mix test
+
+  coverage:
+    name: Test Coverage
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: '1.16'
+        otp-version: '26'
+
+    - name: Restore dependencies cache
+      uses: actions/cache@v4
+      with:
+        path: deps
+        key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+        restore-keys: ${{ runner.os }}-mix-
+
+    - name: Restore build cache
+      uses: actions/cache@v4
+      with:
+        path: _build
+        key: ${{ runner.os }}-build-26-1.16-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-26-1.16-
+
+    - name: Install dependencies
+      run: mix deps.get
+
+    - name: Run tests with coverage
+      run: mix coveralls.github
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: '1.16'
+        otp-version: '26'
+
+    - name: Restore dependencies cache
+      uses: actions/cache@v4
+      with:
+        path: deps
+        key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+        restore-keys: ${{ runner.os }}-mix-
+
+    - name: Restore build cache
+      uses: actions/cache@v4
+      with:
+        path: _build
+        key: ${{ runner.os }}-build-26-1.16-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-26-1.16-
+
+    - name: Restore PLT cache
+      uses: actions/cache@v4
+      with:
+        path: priv/plts
+        key: ${{ runner.os }}-plt-26-1.16-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-plt-26-1.16-
+
+    - name: Install dependencies
+      run: mix deps.get
+
+    - name: Check for unused dependencies
+      run: mix deps.unlock --check-unused
+
+    - name: Check for security vulnerabilities
+      run: mix deps.audit

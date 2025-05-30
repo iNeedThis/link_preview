@@ -17,7 +17,11 @@ defmodule LinkPreview.Parsers.Opengraph do
   def title(page, body) do
     title =
       body
-      |> Floki.parse()
+      |> Floki.parse_document()
+      |> case do
+        {:ok, document} -> document
+        {:error, _} -> []
+      end
       |> Floki.find("meta[property^=\"og:title\"]")
       |> Floki.attribute("content")
       |> List.first()
@@ -37,7 +41,11 @@ defmodule LinkPreview.Parsers.Opengraph do
   def description(page, body) do
     description =
       body
-      |> Floki.parse()
+      |> Floki.parse_document()
+      |> case do
+        {:ok, document} -> document
+        {:error, _} -> []
+      end
       |> Floki.find("meta[property^=\"og:description\"]")
       |> Floki.attribute("content")
       |> List.first()
@@ -64,13 +72,14 @@ defmodule LinkPreview.Parsers.Opengraph do
   def images(page, body) do
     images =
       body
-      |> Floki.parse()
+      |> Floki.parse_document()
+      |> case do
+        {:ok, document} -> document
+        {:error, _} -> []
+      end
       |> Floki.find("meta[property^=\"og:image\"]")
       |> Floki.attribute("content")
       |> Enum.map(&String.trim(&1))
-      |> maybe_force_absolute_url(page)
-      |> maybe_force_url_schema
-      |> maybe_validate
       |> Enum.map(&%{url: &1})
 
     %Page{page | images: images}
